@@ -16,12 +16,11 @@ import kotlin.math.sign
 
 @InitiatingFlow
 @StartableByRPC
-class ItemUpdateFlow(private val linearID: UniqueIdentifier, private val newPrice: Amount<Currency>) : FlowLogic<SignedTransaction>() {
+class ItemUpdateFlow(private val sku: String, private val newPrice: Amount<Currency>) : ItemFlow() {
 
     @Suspendable
     override fun call(): SignedTransaction {
-        val queryCriteria = QueryCriteria.LinearStateQueryCriteria(linearId = listOf(linearID))
-        val itemStateAndRef =  serviceHub.vaultService.queryBy<ItemState>(queryCriteria).states.single()
+        val itemStateAndRef =  getItemUsingSku(sku)
         val inputItem = itemStateAndRef.state.data
 
         if (ourIdentity != inputItem.seller) {

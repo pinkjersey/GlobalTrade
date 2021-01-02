@@ -1,14 +1,17 @@
 package tr.com.citlembik.flows
 
 import co.paralleluniverse.fibers.Suspendable
+import net.corda.core.contracts.Amount
 import net.corda.core.contracts.Command
 import net.corda.core.contracts.requireThat
 import net.corda.core.flows.*
+import net.corda.core.identity.AnonymousParty
 import net.corda.core.transactions.SignedTransaction
 import net.corda.core.transactions.TransactionBuilder
 import net.corda.core.utilities.ProgressTracker
 import tr.com.citlembik.contracts.ItemContract
 import tr.com.citlembik.states.ItemState
+import java.util.*
 import kotlin.math.sign
 
 /**
@@ -16,11 +19,14 @@ import kotlin.math.sign
  */
 @InitiatingFlow
 @StartableByRPC
-class ItemCreateFlow(private val state: ItemState) : FlowLogic<SignedTransaction>() {
+class ItemCreateFlow(private val itemName: String, private val itemSku: String,
+                     private val itemPrice: Amount<Currency>, private val potentialBuyers: List<AnonymousParty>) : ItemFlow() {
     override val progressTracker = ProgressTracker()
 
     @Suspendable
     override fun call() : SignedTransaction {
+        val state = ItemState(ourIdentity, itemName, itemSku, itemPrice, potentialBuyers)
+
         val notary = serviceHub.networkMapCache.notaryIdentities.single()
 
         val createCommand = Command(ItemContract.Commands.Create(), state.participants.map { it.owningKey })

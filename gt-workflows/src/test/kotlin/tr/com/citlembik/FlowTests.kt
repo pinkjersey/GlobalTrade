@@ -16,6 +16,7 @@ import org.junit.After
 import org.junit.Before
 import org.junit.Test
 import tr.com.citlembik.contracts.ItemContract
+import tr.com.citlembik.flows.ItemAddBuyerFlow
 import tr.com.citlembik.flows.ItemCreateFlow
 import tr.com.citlembik.flows.ItemUpdateFlow
 import tr.com.citlembik.states.ItemState
@@ -50,13 +51,11 @@ class FlowTests {
 
     @Test
     fun flowReturnsCorrectlyFormedPartiallySignedTransaction() {
-        val seller = a.info.chooseIdentityAndCert().party
         val buyer = b.info.chooseIdentityAndCert().party
-        val item = ItemState(seller, "Fidget spinner", "001", 6.DOLLARS, listOf(buyer.anonymise()))
-        val flow = ItemCreateFlow(item)
+        val flow = ItemCreateFlow("Fidget spinner", "001", 6.DOLLARS, listOf(buyer.anonymise()))
         val future = a.startFlow(flow)
         mockNetwork.runNetwork()
-        // Return the unsigned(!) SignedTransaction object from the IOUIssueFlow.
+        // Return the unsigned(!) SignedTransaction object from the flow.
         val ptx: SignedTransaction = future.getOrThrow()
         // Print the transaction for debugging purposes.
         println(ptx.tx)
@@ -64,6 +63,7 @@ class FlowTests {
         // No outputs, one input IOUState and a command with the right properties.
         assert(ptx.tx.inputs.isEmpty())
         assert(ptx.tx.outputs.single().data is ItemState)
+        val item = ptx.tx.outputs.single().data
         val command = ptx.tx.commands.single()
         assert(command.value is ItemContract.Commands.Create)
         assert(command.signers.toSet() == item.participants.map { it.owningKey }.toSet())
@@ -78,29 +78,30 @@ class FlowTests {
         // Check that item with no name fails
         val seller = a.info.chooseIdentityAndCert().party
         val buyer = b.info.chooseIdentityAndCert().party
-        val badItem = ItemState(seller, "", "001", 6.DOLLARS, listOf(buyer.anonymise()))
-        val futureOne = a.startFlow(ItemCreateFlow(badItem))
+        //val badItem = ItemState(seller, "", "001", 6.DOLLARS, listOf(buyer.anonymise()))
+        // attempts to create bad item (blank item name)
+        val futureOne = a.startFlow(ItemCreateFlow("", "001", 6.DOLLARS, listOf(buyer.anonymise())))
         mockNetwork.runNetwork()
         assertFailsWith<TransactionVerificationException> { futureOne.getOrThrow() }
-        // Check that an IOU with the same participants fails.
-        val sellerIsBuyerItem = ItemState(seller, "Fidget spinner", "001", 6.DOLLARS, listOf(seller.anonymise()))
-        val futureTwo = a.startFlow(ItemCreateFlow(sellerIsBuyerItem))
+        // attempts to create bad item (blank sku)
+        val futureTwo = a.startFlow(ItemCreateFlow("Fidget spinner", "", 6.DOLLARS, listOf(buyer.anonymise())))
         mockNetwork.runNetwork()
         assertFailsWith<TransactionVerificationException> { futureTwo.getOrThrow() }
-        // Check a good IOU passes.
-        val item = ItemState(seller, "Fidget spinner", "001", 6.DOLLARS, listOf(buyer.anonymise()))
-        val futureThree = a.startFlow(ItemCreateFlow(item))
+        // attempts to create a bad item (seller is also buyer
+        val futureThree = a.startFlow(ItemCreateFlow("Fidget spinner", "001", 6.DOLLARS, listOf(seller.anonymise())))
         mockNetwork.runNetwork()
-        futureThree.getOrThrow()
+        assertFailsWith<TransactionVerificationException> { futureThree.getOrThrow() }
+        // Check a good item passes.
+        val futureFour = a.startFlow(ItemCreateFlow("Fidget spinner", "001", 6.DOLLARS, listOf(buyer.anonymise())))
+        mockNetwork.runNetwork()
+        futureFour.getOrThrow()
     }
 
     @Test
     fun flowReturnsTransactionSignedAllParties() {
-        val seller = a.info.chooseIdentityAndCert().party
         val buyer1 = b.info.chooseIdentityAndCert().party
         val buyer2 = c.info.chooseIdentityAndCert().party
-        val item = ItemState(seller, "Fidget spinner", "001", 6.DOLLARS, listOf(buyer1.anonymise(), buyer2.anonymise()))
-        val flow = ItemCreateFlow(item)
+        val flow = ItemCreateFlow("Fidget spinner", "001", 6.DOLLARS, listOf(buyer1.anonymise(), buyer2.anonymise()))
         val future = a.startFlow(flow)
         mockNetwork.runNetwork()
         val stx = future.getOrThrow()
@@ -109,15 +110,14 @@ class FlowTests {
 
     @Test
     fun flowReturnsTransactionSignedAllPartiesFollowedByPriceUpdate() {
-        val seller = a.info.chooseIdentityAndCert().party
         val buyer1 = b.info.chooseIdentityAndCert().party
-        val item = ItemState(seller, "Fidget spinner", "007", 6.DOLLARS, listOf(buyer1.anonymise()))
-        val flow = ItemCreateFlow(item)
+        val flow = ItemCreateFlow("Fidget spinner", "007", 6.DOLLARS, listOf(buyer1.anonymise()))
         val future = a.startFlow(flow)
         mockNetwork.runNetwork()
         val stx = future.getOrThrow()
         stx.verifyRequiredSignatures()
-        val updateFlow = ItemUpdateFlow(item.linearId, 7.DOLLARS)
+        val item = stx.tx.outputs.single().data as ItemState
+        val updateFlow = ItemUpdateFlow(item.sku, 7.DOLLARS)
         val updateFuture = a.startFlow(updateFlow)
         mockNetwork.runNetwork()
         val signedUpdateTx = updateFuture.getOrThrow()
@@ -126,15 +126,35 @@ class FlowTests {
 
     @Test(expected = IllegalArgumentException::class)
     fun flowReturnsTransactionSignedAllPartiesFollowedByPriceUpdateBadPrice() {
-        val seller = a.info.chooseIdentityAndCert().party
         val buyer1 = b.info.chooseIdentityAndCert().party
-        val item = ItemState(seller, "Fidget spinner", "007", 6.DOLLARS, listOf(buyer1.anonymise()))
-        val flow = ItemCreateFlow(item)
+        val flow = ItemCreateFlow("Fidget spinner", "007", 6.DOLLARS, listOf(buyer1.anonymise()))
         val future = a.startFlow(flow)
         mockNetwork.runNetwork()
         val stx = future.getOrThrow()
         stx.verifyRequiredSignatures()
-        val updateFlow = ItemUpdateFlow(item.linearId, 6.DOLLARS)
+        val item = stx.tx.outputs.single().data as ItemState
+        val updateFlow = ItemUpdateFlow(item.sku, 6.DOLLARS)
+        val updateFuture = a.startFlow(updateFlow)
+        mockNetwork.runNetwork()
+        val signedUpdateTx = updateFuture.getOrThrow()
+        signedUpdateTx.verifyRequiredSignatures()
+    }
+
+    @Test
+    fun flowReturnsTransactionSignedAllPartiesFollowedByNewBuyer() {
+        val buyer1 = b.info.chooseIdentityAndCert().party
+        val buyer2 = c.info.chooseIdentityAndCert().party
+
+        // create item
+        val flow = ItemCreateFlow("Fidget spinner", "007", 6.DOLLARS, listOf(buyer1.anonymise()))
+        val future = a.startFlow(flow)
+        mockNetwork.runNetwork()
+        val stx = future.getOrThrow()
+        stx.verifyRequiredSignatures()
+
+        // add new buyer
+        val item = stx.tx.outputs.single().data as ItemState
+        val updateFlow = ItemAddBuyerFlow(item.sku, listOf(buyer2.anonymise()))
         val updateFuture = a.startFlow(updateFlow)
         mockNetwork.runNetwork()
         val signedUpdateTx = updateFuture.getOrThrow()
@@ -143,11 +163,9 @@ class FlowTests {
 
     @Test
     fun flowRecordsTheSameTransactionInAllPartyVaults() {
-        val seller = a.info.chooseIdentityAndCert().party
         val buyer1 = b.info.chooseIdentityAndCert().party
         val buyer2 = c.info.chooseIdentityAndCert().party
-        val item = ItemState(seller, "Fidget spinner", "001", 6.DOLLARS, listOf(buyer1.anonymise(), buyer2.anonymise()))
-        val flow = ItemCreateFlow(item)
+        val flow = ItemCreateFlow("Fidget spinner", "001", 6.DOLLARS, listOf(buyer1.anonymise(), buyer2.anonymise()))
         val future = a.startFlow(flow)
         mockNetwork.runNetwork()
         val stx = future.getOrThrow()
