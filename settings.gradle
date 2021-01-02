@@ -1,3 +1,3 @@
-include 'workflows'
-include 'contracts'
+include 'gt-workflows'
+include 'gt-contracts'
 include 'clients'
