@@ -1,12 +1,10 @@
 package tr.com.citlembik
 
 import net.corda.core.contracts.TransactionVerificationException
-import tr.com.citlembik.flows.ItemCreateResponder
 import net.corda.core.identity.CordaX500Name
 import net.corda.core.transactions.SignedTransaction
 import net.corda.core.utilities.getOrThrow
 import net.corda.finance.DOLLARS
-import net.corda.testing.core.internal.ContractJarTestUtils.makeTestJar
 import net.corda.testing.internal.chooseIdentityAndCert
 import net.corda.testing.node.MockNetwork
 import net.corda.testing.node.MockNetworkNotarySpec
@@ -18,7 +16,8 @@ import org.junit.Test
 import tr.com.citlembik.contracts.ItemContract
 import tr.com.citlembik.flows.ItemAddBuyerFlow
 import tr.com.citlembik.flows.ItemCreateFlow
-import tr.com.citlembik.flows.ItemUpdateFlow
+import tr.com.citlembik.flows.ItemNoLongerForSaleFlow
+import tr.com.citlembik.flows.ItemPriceChangeFlow
 import tr.com.citlembik.states.ItemState
 import java.lang.IllegalArgumentException
 import kotlin.test.assertEquals
@@ -117,7 +116,7 @@ class FlowTests {
         val stx = future.getOrThrow()
         stx.verifyRequiredSignatures()
         val item = stx.tx.outputs.single().data as ItemState
-        val updateFlow = ItemUpdateFlow(item.sku, 7.DOLLARS)
+        val updateFlow = ItemPriceChangeFlow(item.sku, 7.DOLLARS)
         val updateFuture = a.startFlow(updateFlow)
         mockNetwork.runNetwork()
         val signedUpdateTx = updateFuture.getOrThrow()
@@ -133,7 +132,7 @@ class FlowTests {
         val stx = future.getOrThrow()
         stx.verifyRequiredSignatures()
         val item = stx.tx.outputs.single().data as ItemState
-        val updateFlow = ItemUpdateFlow(item.sku, 6.DOLLARS)
+        val updateFlow = ItemPriceChangeFlow(item.sku, 6.DOLLARS)
         val updateFuture = a.startFlow(updateFlow)
         mockNetwork.runNetwork()
         val signedUpdateTx = updateFuture.getOrThrow()
@@ -177,5 +176,26 @@ class FlowTests {
             println("$txHash == ${stx.id}")
             assertEquals(stx.id, txHash)
         }
+    }
+
+    @Test
+    fun flowCreateItemFollowedByNotForSale() {
+        val buyer1 = b.info.chooseIdentityAndCert().party
+
+        // create item
+        val flow = ItemCreateFlow("Fidget spinner", "001", 6.DOLLARS, listOf(buyer1.anonymise()))
+        val future = a.startFlow(flow)
+        mockNetwork.runNetwork()
+        val stx = future.getOrThrow()
+
+        // mark item not for sale
+        val item = stx.tx.outputs.single().data as ItemState
+        val notForSaleFlow = ItemNoLongerForSaleFlow(item.sku)
+        val updateFuture = a.startFlow(notForSaleFlow)
+        mockNetwork.runNetwork()
+        val signedNoLongerForSaleTx = updateFuture.getOrThrow()
+        signedNoLongerForSaleTx.verifyRequiredSignatures()
+        val updatedItem = signedNoLongerForSaleTx.tx.outputs.single().data as ItemState
+        assertEquals(updatedItem.forSale, false)
     }
 }

@@ -2,21 +2,17 @@ package tr.com.citlembik.flows
 
 import co.paralleluniverse.fibers.Suspendable
 import net.corda.core.contracts.*
-import net.corda.core.contracts.Requirements.using
 import net.corda.core.flows.*
-import net.corda.core.node.services.queryBy
-import net.corda.core.node.services.vault.QueryCriteria
 import net.corda.core.transactions.SignedTransaction
 import net.corda.core.transactions.TransactionBuilder
 import tr.com.citlembik.contracts.ItemContract
 import tr.com.citlembik.states.ItemState
 import java.lang.IllegalArgumentException
 import java.util.*
-import kotlin.math.sign
 
 @InitiatingFlow
 @StartableByRPC
-class ItemUpdateFlow(private val sku: String, private val newPrice: Amount<Currency>) : ItemFlow() {
+class ItemPriceChangeFlow(private val sku: String, private val newPrice: Amount<Currency>) : ItemFlow() {
 
     @Suspendable
     override fun call(): SignedTransaction {
@@ -53,8 +49,8 @@ class ItemUpdateFlow(private val sku: String, private val newPrice: Amount<Curre
 
 }
 
-@InitiatedBy(ItemUpdateFlow::class)
-class ItemUpdateResponder(val flowSession: FlowSession) : FlowLogic<SignedTransaction>() {
+@InitiatedBy(ItemPriceChangeFlow::class)
+class ItemPriceChangeResponder(val flowSession: FlowSession) : FlowLogic<SignedTransaction>() {
     @Suspendable
     override fun call() : SignedTransaction {
         val signedTransactionFlow = object : SignTransactionFlow(flowSession) {

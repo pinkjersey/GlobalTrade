@@ -16,11 +16,17 @@ data class ItemState(
         val name: String,
         val sku: String,
         val price: Amount<Currency>,
+        val forSale: Boolean,
         val potentialBuyers: List<AnonymousParty>,
         override val linearId: UniqueIdentifier) : LinearState, QueryableState {
 
-    constructor(seller: Party, name: String, sku: String, price: Amount<Currency>, potentialBuyers: List<AnonymousParty>) :
-            this(seller, name, sku, price, potentialBuyers, UniqueIdentifier(sku))
+    constructor(seller: Party, name: String, sku: String, price: Amount<Currency>,
+                potentialBuyers: List<AnonymousParty>) :
+            this(seller, name, sku, price, true, potentialBuyers, UniqueIdentifier(sku))
+
+    constructor(seller: Party, name: String, sku: String, price: Amount<Currency>, forSale: Boolean,
+                potentialBuyers: List<AnonymousParty>) :
+            this(seller, name, sku, price, forSale, potentialBuyers, UniqueIdentifier(sku))
 
     override val participants: List<AbstractParty>
         get() = listOf(seller).plus(potentialBuyers)

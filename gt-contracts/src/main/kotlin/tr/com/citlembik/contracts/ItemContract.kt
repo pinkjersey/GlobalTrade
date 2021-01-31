@@ -22,6 +22,7 @@ class ItemContract : Contract {
         class Create : TypeOnlyCommandData(), Commands
         class UpdatePrice : TypeOnlyCommandData(), Commands
         class AddBuyer : TypeOnlyCommandData(), Commands
+        class NoLongerForSale : TypeOnlyCommandData(), Commands
     }
 
     override fun verify(tx: LedgerTransaction) {
@@ -36,6 +37,7 @@ class ItemContract : Contract {
                 "The seller cannot be in the buyer list" using (!item.potentialBuyers.contains(item.seller.anonymise()))
                 "the name must be filled in" using (item.name.isNotEmpty())
                 "the item sku must be filled in" using (item.sku.isNotEmpty())
+                "the for sale flag must be set" using item.forSale
             }
             is Commands.UpdatePrice -> requireThat {
                 "An update should consume the previous state." using (tx.inputs.size == 1)
@@ -45,6 +47,7 @@ class ItemContract : Contract {
                 "Only the price may change." using (input == output.withNewPrice(input.price))
                 "The price must change." using (input.price != output.price)
                 "The new price must be greater or equal to zero." using (output.price.quantity >= 0)
+                "the for sale flag must be set" using input.forSale
                 "The seller and the potential buyers must sign the transaction" using
                         (command.signers.toSet() == (input.participants.map { it.owningKey }.toSet() `union`
                                 output.participants.map { it.owningKey }.toSet()))
@@ -57,9 +60,18 @@ class ItemContract : Contract {
                 "Only the buyer list may change." using (input == output.withNewBuyers(input.potentialBuyers))
                 "The new buyer list must contain more buyers." using (input.potentialBuyers.count() < output.potentialBuyers.count())
                 "The old buyer list must be a subset of the new." using (output.potentialBuyers.containsAll(input.potentialBuyers))
+                "the for sale flag must be set" using input.forSale
                 "The seller and the potential buyers must sign the transaction" using
                         (command.signers.toSet() == (input.participants.map { it.owningKey }.toSet() `union`
                                 output.participants.map { it.owningKey }.toSet()))
+            }
+            is Commands.NoLongerForSale -> requireThat {
+                "An update should consume the previous state." using (tx.inputs.size == 1)
+                "An update should only create one state." using (tx.outputs.size == 1)
+                val input = tx.inputsOfType<ItemState>().single()
+                val output = tx.outputsOfType<ItemState>().single()
+                "The for sale flag must be false" using !output.forSale
+                "Only the for sale flag may change" using (input == output.copy(forSale = true))
             }
         }
     }

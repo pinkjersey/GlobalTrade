@@ -30,7 +30,7 @@ class ItemCreateFlow(private val itemName: String, private val itemSku: String,
             throw IllegalArgumentException("An item with $itemSku already exists.")
         }
 
-        val state = ItemState(ourIdentity, itemName, itemSku, itemPrice, potentialBuyers)
+        val state = ItemState(ourIdentity, itemName, itemSku, itemPrice, true, potentialBuyers)
 
         val notary = serviceHub.networkMapCache.notaryIdentities.single()
 
