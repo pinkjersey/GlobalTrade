@@ -41,6 +41,7 @@ data class ItemState(
                     this.sku,
                     this.price.quantity,
                     this.price.token.currencyCode,
+                    this.forSale,
                     this.linearId.id
             )
             else -> throw IllegalArgumentException("Unrecognised schema $schema")
