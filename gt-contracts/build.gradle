@@ -9,6 +9,17 @@ cordapp {
         licence "Apache License, Version 2.0"
         versionId 1
     }
+    signing {
+        enabled true
+	options {
+	    // Details in ~/.grade/gradle.properties
+	    keystore getProperty('jar.sign.keystore')
+	    alias "cordapp-signer"
+	    storepass getProperty('jar.sign.password')
+	    keypass getProperty('jar.sign.password')
+	    storetype "PKCS12"
+	}
+    }
 }
 
 dependencies {
