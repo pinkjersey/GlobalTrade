@@ -16,4 +16,12 @@ abstract class ItemFlow : FlowLogic<SignedTransaction>() {
         val results = serviceHub.vaultService.queryBy<ItemState>(linearStateCriteria and vaultCriteria)
         return results.states.single()
     }
+
+    fun itemExists(sku: String) : Boolean {
+        val linearStateCriteria = QueryCriteria.LinearStateQueryCriteria(externalId = listOf(sku),
+                status = Vault.StateStatus.UNCONSUMED)
+        val vaultCriteria = QueryCriteria.VaultQueryCriteria(status = Vault.StateStatus.ALL)
+        val results = serviceHub.vaultService.queryBy<ItemState>(linearStateCriteria and vaultCriteria)
+        return results.states.isNotEmpty()
+    }
 }

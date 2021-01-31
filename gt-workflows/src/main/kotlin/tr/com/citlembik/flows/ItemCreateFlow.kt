@@ -1,6 +1,7 @@
 package tr.com.citlembik.flows
 
 import co.paralleluniverse.fibers.Suspendable
+import com.sun.javaws.exceptions.InvalidArgumentException
 import net.corda.core.contracts.Amount
 import net.corda.core.contracts.Command
 import net.corda.core.contracts.requireThat
@@ -25,6 +26,10 @@ class ItemCreateFlow(private val itemName: String, private val itemSku: String,
 
     @Suspendable
     override fun call() : SignedTransaction {
+        if (itemExists(itemSku)) {
+            throw IllegalArgumentException("An item with $itemSku already exists.")
+        }
+
         val state = ItemState(ourIdentity, itemName, itemSku, itemPrice, potentialBuyers)
 
         val notary = serviceHub.networkMapCache.notaryIdentities.single()
