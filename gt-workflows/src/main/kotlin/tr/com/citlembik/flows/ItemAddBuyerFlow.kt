@@ -27,8 +27,6 @@ class ItemAddBuyerFlow(private val sku: String, private val newPotentialBuyers: 
         ItemFlow() {
     override val progressTracker = ProgressTracker()
 
-
-
     @Suspendable
     override fun call() : SignedTransaction {
         val itemStateAndRef =  getItemUsingSku(sku)
@@ -36,9 +34,9 @@ class ItemAddBuyerFlow(private val sku: String, private val newPotentialBuyers: 
 
         val notary = serviceHub.networkMapCache.notaryIdentities.single()
 
-        // only the seller can add a buyer
+        // only the seller can add an item
         if (ourIdentity != inputItem.seller) {
-            throw java.lang.IllegalArgumentException("Only the seller can make changes to an item.")
+            throw IllegalArgumentException("Only the seller can make changes to an item.")
         }
 
         // ensure seller is not in the list of buyers
@@ -63,6 +61,7 @@ class ItemAddBuyerFlow(private val sku: String, private val newPotentialBuyers: 
         return subFlow(FinalityFlow(stx, sessions))
     }
 }
+
 
 @InitiatedBy(ItemAddBuyerFlow::class)
 class ItemAddBuyerResponder(val flowSession: FlowSession) : FlowLogic<SignedTransaction>() {
