@@ -12,6 +12,7 @@
             <column name="seller" type="NVARCHAR(64)"/>
             <column name="name" type="NVARCHAR(64)"/>
             <column name="sku" type="NVARCHAR(64)"/>
+            <column name="for_sale" type="boolean" />
             <column name="linear_id" type="NVARCHAR(64)"/>
         </createTable>
     </changeSet>
